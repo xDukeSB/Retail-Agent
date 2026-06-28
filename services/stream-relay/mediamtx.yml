@@ -1,0 +1,46 @@
+###############################################
+#  MediaMTX Configuration — RetailAI Agent
+#  RTSP relay + HLS output for dashboard
+###############################################
+
+# Log level: error, warn, info, debug
+logLevel: info
+logDestinations: [stdout]
+
+# ── API ──────────────────────────────────────
+api: yes
+apiAddress: :9997
+
+# ── RTSP ─────────────────────────────────────
+rtsp: yes
+rtspAddress: :8554
+rtspEncryption: no
+rtspAuthMethods: [basic]
+
+# ── HLS (for browser preview) ────────────────
+hls: yes
+hlsAddress: :8888
+hlsAlwaysRemux: yes
+hlsVariant: lowLatency
+hlsSegmentCount: 3
+hlsSegmentDuration: 1s
+hlsPartDuration: 200ms
+hlsDirectory: ""
+hlsAllowOrigin: "*"
+
+# ── WebRTC (optional) ────────────────────────
+webrtc: yes
+webrtcAddress: :8889
+webrtcAllowOrigin: "*"
+
+# ── Paths (cameras) ──────────────────────────
+# Each camera registers its own path via the API
+# Example path auto-created when CV pipeline connects:
+#   rtsp://localhost:8554/camera-<uuid>
+paths:
+  all:
+    # Allow any source to publish
+    source: publisher
+    # Readers can always connect
+    readUser: ""
+    readPass: ""

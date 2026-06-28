@@ -1,0 +1,66 @@
+version: "3.9"
+
+# ═══════════════════════════════════════════════════════════════
+#  RetailAI Agent — Development Docker Compose
+#  Extends production with hot-reload, debug flags, and volume mounts
+# ═══════════════════════════════════════════════════════════════
+
+services:
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      ENVIRONMENT: development
+      DEBUG: "true"
+      LOG_FORMAT: text
+      LOG_LEVEL: DEBUG
+      DB_ECHO: "true"
+      SECRET_KEY: dev-secret-key-not-for-production
+      ADMIN_PASSWORD: DevAdmin123!
+      DB_DIALECT: sqlite
+      SQLITE_PATH: /data/db/retailai-dev.db
+    volumes:
+      - ../backend:/app
+      - retailai-dev-data:/data
+    ports:
+      - "8000:8000"
+    networks:
+      - retailai-dev-net
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app
+
+  frontend:
+    build:
+      context: ../apps/frontend
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ../apps/frontend:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_WS_URL: ws://localhost:8000
+    ports:
+      - "3000:3000"
+    networks:
+      - retailai-dev-net
+    command: npm run dev
+
+  stream-relay:
+    image: bluenviron/mediamtx:latest
+    ports:
+      - "8554:8554"
+      - "8888:8888"
+    volumes:
+      - ../services/stream-relay/mediamtx.yml:/mediamtx.yml:ro
+    networks:
+      - retailai-dev-net
+
+volumes:
+  retailai-dev-data:
+
+networks:
+  retailai-dev-net:
+    driver: bridge
