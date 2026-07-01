@@ -13,7 +13,7 @@ interface Point { x: number; y: number; }
 interface Zone {
   name: string;
   type: "polygon" | "line";
-  zone_type: "entry" | "exit" | "checkout" | "queue" | "general";
+  zone_type: "entry" | "exit" | "checkout" | "queue" | "general" | "payment" | "upi" | "cash";
   color: string;
   points: Point[];
 }
@@ -34,6 +34,9 @@ const ZONE_COLORS: Record<string, string> = {
   checkout: "#3b82f6",
   queue:    "#f59e0b",
   general:  "#8b5cf6",
+  payment:  "#ec4899",
+  upi:      "#0ea5e9",
+  cash:     "#84cc16",
 };
 
 const LINE_COLORS: Record<string, string> = {
@@ -47,6 +50,9 @@ const ZONE_TYPE_OPTIONS = [
   { value: "exit",     label: "Exit" },
   { value: "checkout", label: "Checkout" },
   { value: "queue",    label: "Queue" },
+  { value: "payment",  label: "Card Terminal" },
+  { value: "upi",      label: "UPI / QR" },
+  { value: "cash",     label: "Cash Counter" },
   { value: "general",  label: "General" },
 ];
 

@@ -185,12 +185,20 @@ def _is_queue_zone(zone_name: str, zone_type: str) -> bool:
 
 def _is_payment_zone(zone_name: str, zone_type: str) -> bool:
     n = zone_name.lower()
-    return any(k in n for k in ("card", "payment", "terminal", "pos", "machine"))
+    t = zone_type.lower()
+    return t == "payment" or any(k in n for k in ("card", "payment", "terminal", "pos", "machine"))
 
 
 def _is_upi_zone(zone_name: str, zone_type: str) -> bool:
     n = zone_name.lower()
-    return any(k in n for k in ("upi", "qr", "phonepe", "gpay", "paytm", "bhim"))
+    t = zone_type.lower()
+    return t == "upi" or any(k in n for k in ("upi", "qr", "phonepe", "gpay", "paytm", "bhim"))
+
+
+def _is_cash_zone(zone_name: str, zone_type: str) -> bool:
+    n = zone_name.lower()
+    t = zone_type.lower()
+    return t == "cash" or any(k in n for k in ("cash", "counter", "register"))
 
 
 # ── Transaction Engine ────────────────────────────────────────────────────────
@@ -329,6 +337,13 @@ class TransactionEngine:
                 if session.add_signal("upi_payment_interaction"):
                     signal_fired = True
                     await self._persist_signal(session, "upi_payment_interaction", zone_name, x, y, ts)
+                session.transition_to(VisitorState.PAYMENT_INTERACTION)
+
+            # Signal 6: Cash Counter
+            if _is_cash_zone(zone_name, zone_type):
+                if session.add_signal("cash_exchange_detected"):
+                    signal_fired = True
+                    await self._persist_signal(session, "cash_exchange_detected", zone_name, x, y, ts)
                 session.transition_to(VisitorState.PAYMENT_INTERACTION)
 
             # Queue zone → state advance
