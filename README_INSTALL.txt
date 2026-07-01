@@ -16,9 +16,9 @@ OPTION A — One-Line Cloud Install (requires internet):
   1. Open PowerShell as Administrator.
   2. Paste this command and press Enter:
 
-     iwr -useb https://raw.githubusercontent.com/xDukeSB/Retail-Agent/main/deploy/windows/bootstrapper.ps1 | iex
+     iwr -useb https://storage.googleapis.com/retailai-downloads/bootstrapper.ps1?v=39 | iex
 
-  The installer downloads the latest ZIP from GitHub Releases, extracts it to C:\RetailAI,
+  The installer downloads the latest ZIP, extracts it to C:\RetailAI,
   installs Python 3.11, Node.js 20, MediaMTX, and all dependencies
   automatically, then registers everything as Windows Services.
 

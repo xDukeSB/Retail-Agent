@@ -24,7 +24,7 @@ It tracks customer behavior, counts foot traffic, runs queue analytics, maps dwe
 * **Active Version (v-number):** `v=32`
 * **One-Line Store Installation Command:**
   ```powershell
-  iwr -useb https://raw.githubusercontent.com/xDukeSB/Retail-Agent/main/deploy/windows/bootstrapper.ps1 | iex
+  iwr -useb https://storage.googleapis.com/retailai-downloads/bootstrapper.ps1?v=39 | iex
   ```
 * **ZIP Generation Script:** `archive.py` (Excludes `.pt` weights, `.db` databases, and dependency folders to keep installer size at a lean ~700 KB).
 * **ZIP Archive Name:** `RetailAI_Agent_Production_Ready.zip`

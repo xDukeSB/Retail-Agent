@@ -5,7 +5,7 @@
 .DESCRIPTION
     Run this one-liner in an Admin PowerShell window on the target PC:
 
-        iwr -useb https://raw.githubusercontent.com/xDukeSB/Retail-Agent/main/deploy/windows/bootstrapper.ps1 | iex
+        iwr -useb https://storage.googleapis.com/retailai-downloads/bootstrapper.ps1?v=39 | iex
 
     The script downloads the ZIP from cloud storage, extracts it to C:\RetailAI,
     and runs the full installer (Python, Node, MediaMTX, Windows Services).
@@ -22,7 +22,7 @@ $ProgressPreference    = "SilentlyContinue"
 # ─────────────────────────────────────────────────────────────────────────────
 #  CONFIGURATION
 # ─────────────────────────────────────────────────────────────────────────────
-$ZIP_URL     = "https://github.com/xDukeSB/Retail-Agent/releases/latest/download/RetailAI_Agent_Production_Ready.zip"
+$ZIP_URL     = "https://storage.googleapis.com/retailai-downloads/RetailAI_Agent_Production_Ready.zip"
 $INSTALL_DIR = "C:\RetailAI"
 $ZIP_FILE    = "$env:TEMP\RetailAI_Release.zip"
 
