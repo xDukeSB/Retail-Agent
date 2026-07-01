@@ -5,7 +5,7 @@
 .DESCRIPTION
     Run this one-liner in an Admin PowerShell window on the target PC:
 
-        iwr -useb https://storage.googleapis.com/retailai-downloads/bootstrapper.ps1?v=33 | iex
+        iwr -useb https://raw.githubusercontent.com/xDukeSB/Retail-Agent/main/deploy/windows/bootstrapper.ps1 | iex
 
     The script downloads the ZIP from cloud storage, extracts it to C:\RetailAI,
     and runs the full installer (Python, Node, MediaMTX, Windows Services).
@@ -13,7 +13,7 @@
 .NOTES
     Requires:  Administrator privileges
     Tested on: Windows 10, Windows 11, Windows Server 2019+
-    Version:   v33
+    Version:   v39
 #>
 
 $ErrorActionPreference = "Stop"
@@ -22,7 +22,7 @@ $ProgressPreference    = "SilentlyContinue"
 # ─────────────────────────────────────────────────────────────────────────────
 #  CONFIGURATION
 # ─────────────────────────────────────────────────────────────────────────────
-$ZIP_URL     = "https://storage.googleapis.com/retailai-downloads/RetailAI_Agent_Production_Ready.zip"
+$ZIP_URL     = "https://github.com/xDukeSB/Retail-Agent/releases/latest/download/RetailAI_Agent_Production_Ready.zip"
 $INSTALL_DIR = "C:\RetailAI"
 $ZIP_FILE    = "$env:TEMP\RetailAI_Release.zip"
 
@@ -31,7 +31,7 @@ $ZIP_FILE    = "$env:TEMP\RetailAI_Release.zip"
 # ─────────────────────────────────────────────────────────────────────────────
 Write-Host ""
 Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "   RetailAI Agent  v33  --  Cloud Installer                " -ForegroundColor Cyan
+Write-Host "   RetailAI Agent  v39  --  Cloud Installer                " -ForegroundColor Cyan
 Write-Host "   Local-First CCTV AI Platform for Retail Stores          " -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host ""

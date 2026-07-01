@@ -53,8 +53,8 @@ class AnalyticsTracker:
                 async with AsyncSessionLocal() as db:
                     cam = await db.get(Camera, camera_id)
                     zm = ZoneManager(throttle_seconds=2.0)
-                    if cam and cam.zone_config_json:
-                        zm.load_config(cam.zone_config_json)
+                    if cam and cam.zone_config:
+                        zm.load_config(cam.zone_config)
                         logger.info(
                             f"[AnalyticsTracker] Reloaded zone config for camera {camera_id}"
                         )

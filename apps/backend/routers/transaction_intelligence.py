@@ -366,8 +366,11 @@ async def get_transaction_timeline(
         select(TransactionSignal)
         .where(
             TransactionSignal.signal_type.in_(
-                ["checkout_zone_entered", "queue_completed", "cash_exchange_detected",
-                 "card_machine_interaction", "upi_payment_interaction"]
+                [
+                    "checkout_zone_entered", "queue_completed", "cash_exchange_detected",
+                    "card_machine_interaction", "upi_payment_interaction",
+                    "browsing_detected", "extended_dwell_detected",
+                ]
             )
         )
         .order_by(TransactionSignal.detected_at.desc())

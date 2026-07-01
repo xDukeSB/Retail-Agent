@@ -51,6 +51,8 @@ const SIGNAL_LABELS: Record<string, string> = {
   cash_exchange_detected: "Cash Exchange",
   card_machine_interaction: "Card Payment",
   upi_payment_interaction: "UPI / QR",
+  browsing_detected: "Browsing (3+ min)",
+  extended_dwell_detected: "Extended Dwell (8+ min)",
 };
 
 const SIGNAL_ICONS: Record<string, any> = {
@@ -59,6 +61,8 @@ const SIGNAL_ICONS: Record<string, any> = {
   cash_exchange_detected: Banknote,
   card_machine_interaction: CreditCard,
   upi_payment_interaction: Smartphone,
+  browsing_detected: Clock,
+  extended_dwell_detected: TrendingUp,
 };
 
 // ── Sub-components ────────────────────────────────────────────────────────────

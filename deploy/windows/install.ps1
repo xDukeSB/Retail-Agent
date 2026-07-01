@@ -296,6 +296,77 @@ for col, definition in missing.items():
         cur.execute(f"ALTER TABLE stores ADD COLUMN {col} {definition}")
         print(f"  Added column: stores.{col}")
 
+# Create transaction intelligence tables (safe if they already exist)
+cur.execute("""
+CREATE TABLE IF NOT EXISTS transaction_sessions (
+    id TEXT PRIMARY KEY,
+    visitor_uuid TEXT NOT NULL,
+    track_id INTEGER NOT NULL,
+    camera_id TEXT NOT NULL,
+    store_id TEXT,
+    state TEXT NOT NULL DEFAULT 'ENTERED_STORE',
+    confidence_score REAL NOT NULL DEFAULT 0.0,
+    transaction_probability REAL NOT NULL DEFAULT 0.0,
+    confidence_level TEXT NOT NULL DEFAULT 'UNLIKELY',
+    detected_signals TEXT,
+    entered_at DATETIME NOT NULL,
+    exited_at DATETIME,
+    last_updated DATETIME NOT NULL,
+    is_complete BOOLEAN NOT NULL DEFAULT 0,
+    synced BOOLEAN NOT NULL DEFAULT 0
+)
+""")
+
+cur.execute("""
+CREATE TABLE IF NOT EXISTS transaction_signals (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    signal_type TEXT NOT NULL,
+    score INTEGER NOT NULL,
+    zone_name TEXT,
+    detected_at DATETIME NOT NULL,
+    x REAL,
+    y REAL,
+    metadata_json TEXT,
+    synced BOOLEAN NOT NULL DEFAULT 0
+)
+""")
+
+cur.execute("""
+CREATE TABLE IF NOT EXISTS transaction_predictions (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    visitor_uuid TEXT NOT NULL,
+    camera_id TEXT NOT NULL,
+    store_id TEXT,
+    transaction_probability REAL NOT NULL,
+    confidence_level TEXT NOT NULL,
+    detected_signals TEXT,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    synced BOOLEAN NOT NULL DEFAULT 0
+)
+""")
+
+cur.execute("""
+CREATE TABLE IF NOT EXISTS transaction_statistics (
+    id TEXT PRIMARY KEY,
+    camera_id TEXT,
+    date DATE NOT NULL,
+    hour INTEGER,
+    total_sessions INTEGER NOT NULL DEFAULT 0,
+    likely_purchases INTEGER NOT NULL DEFAULT 0,
+    checkout_visitors INTEGER NOT NULL DEFAULT 0,
+    checkout_abandonment INTEGER NOT NULL DEFAULT 0,
+    avg_confidence REAL NOT NULL DEFAULT 0.0,
+    queue_success_rate REAL NOT NULL DEFAULT 0.0,
+    payment_type_distribution TEXT,
+    computed_at DATETIME NOT NULL,
+    synced BOOLEAN NOT NULL DEFAULT 0
+)
+""")
+print("  Transaction intelligence tables created/verified.")
+
 conn.commit()
 conn.close()
 print("Database schema OK.")
@@ -413,8 +484,8 @@ if (Test-Path $mediamtxConfig) {
 
 Install-NssmService -ServiceName "RetailAI_MediaMTX" -ExePath $MediaMtxExe -AppDir $MediaMtxDir -AppArgs $mtxArgs
 
-$UvicornExe = Join-Path $BackendDir ".venv\Scripts\uvicorn.exe"
-Install-NssmService -ServiceName "RetailAI_Backend" -ExePath $UvicornExe -AppDir $BackendDir -AppArgs "main:app --host 0.0.0.0 --port 8000"
+$BackendPython = Join-Path $BackendDir ".venv\Scripts\python.exe"
+Install-NssmService -ServiceName "RetailAI_Backend" -ExePath $BackendPython -AppDir $BackendDir -AppArgs "-m uvicorn main:app --host 0.0.0.0 --port 8000"
 
 $_nc = Get-Command "npm.cmd" -ErrorAction SilentlyContinue
 if ($_nc) {

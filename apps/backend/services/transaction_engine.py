@@ -76,9 +76,12 @@ SIGNAL_SCORES = {
     "cash_exchange_detected": 25,
     "card_machine_interaction": 25,
     "upi_payment_interaction": 20,
+    # Fallback dwell-time signals (fired even without named zones)
+    "browsing_detected": 10,       # visitor in store 3+ minutes
+    "extended_dwell_detected": 30, # visitor in store 8+ minutes
 }
 
-MAX_SCORE = sum(SIGNAL_SCORES.values())  # 105
+MAX_SCORE = 105  # Keep max at 105 so dwell bonuses push into MEDIUM/HIGH
 
 
 # ── Confidence Levels ─────────────────────────────────────────────────────────
@@ -265,7 +268,7 @@ class TransactionEngine:
                 session, zone_name, zone_type, event_type, ts, x, y
             )
 
-            if signal_fired or self._state_changed(session):
+            if signal_fired or await self._state_changed(session):
                 ws_event = self._build_ws_event(session)
                 events.append(ws_event)
 
@@ -345,15 +348,37 @@ class TransactionEngine:
                         metadata={"dwell_seconds": round(dwell, 1)}
                     )
 
-            # Signal 3: Cash Exchange Proxy (long dwell at checkout)
-            if _is_checkout_zone(zone_name, zone_type) and dwell > 90:
-                if session.add_signal("cash_exchange_detected"):
-                    signal_fired = True
-                    await self._persist_signal(
-                        session, "cash_exchange_detected", zone_name, x, y, ts,
-                        metadata={"dwell_seconds": round(dwell, 1)}
-                    )
-                session.transition_to(VisitorState.PURCHASE_COMPLETED)
+            # Checkout Zone Exit — Smart Heuristic Payment Type Inference (Option B)
+            if _is_checkout_zone(zone_name, zone_type):
+                # Slower transaction (>90s) → likely Cash Exchange
+                if dwell > 90:
+                    if session.add_signal("cash_exchange_detected"):
+                        signal_fired = True
+                        await self._persist_signal(
+                            session, "cash_exchange_detected", zone_name, x, y, ts,
+                            metadata={"dwell_seconds": round(dwell, 1), "inference_mode": "heuristic_dwell_cash"}
+                        )
+                    session.transition_to(VisitorState.PURCHASE_COMPLETED)
+                # Medium duration (30s to 90s) → likely Card Machine Interaction
+                elif 30 <= dwell <= 90:
+                    if "card_machine_interaction" not in session.detected_signals:
+                        if session.add_signal("card_machine_interaction"):
+                            signal_fired = True
+                            await self._persist_signal(
+                                session, "card_machine_interaction", zone_name, x, y, ts,
+                                metadata={"dwell_seconds": round(dwell, 1), "inference_mode": "heuristic_dwell_card"}
+                            )
+                    session.transition_to(VisitorState.PURCHASE_COMPLETED)
+                # Fast transaction (10s to 30s) → likely UPI / QR Payment Interaction
+                elif 10 <= dwell < 30:
+                    if "upi_payment_interaction" not in session.detected_signals:
+                        if session.add_signal("upi_payment_interaction"):
+                            signal_fired = True
+                            await self._persist_signal(
+                                session, "upi_payment_interaction", zone_name, x, y, ts,
+                                metadata={"dwell_seconds": round(dwell, 1), "inference_mode": "heuristic_dwell_upi"}
+                            )
+                    session.transition_to(VisitorState.PURCHASE_COMPLETED)
 
             # Card/UPI — even brief interaction counts
             if _is_payment_zone(zone_name, zone_type) and dwell > 10:
@@ -385,13 +410,44 @@ class TransactionEngine:
 
     # ── General Movement → State Logic ────────────────────────────────────────
 
-    def _state_changed(self, session: TransactionSessionState) -> bool:
-        """Advance ENTERED_STORE → SHOPPING after being seen for 10+ seconds."""
-        if session.state == VisitorState.ENTERED_STORE:
-            if time.time() - session.entered_at.timestamp() > 10:
-                session.transition_to(VisitorState.SHOPPING)
-                return True
-        return False
+    async def _state_changed(self, session: TransactionSessionState) -> bool:
+        """Advance state machine and fire dwell-time-based signals."""
+        changed = False
+        dwell = time.time() - session.entered_at.timestamp()
+
+        # Advance ENTERED_STORE → SHOPPING after 10 seconds
+        if session.state == VisitorState.ENTERED_STORE and dwell > 10:
+            session.transition_to(VisitorState.SHOPPING)
+            changed = True
+
+        # Fallback signal: browsing detected after 3 minutes in store
+        if dwell > 180 and session.add_signal("browsing_detected"):
+            await self._persist_signal(
+                session, "browsing_detected", "store",
+                0.5, 0.5, time.time(),
+                metadata={"dwell_seconds": round(dwell, 0)}
+            )
+            if session.confidence_level != session.last_persisted_level:
+                await self._persist_prediction(session)
+                session.last_persisted_level = session.confidence_level
+            changed = True
+
+        # Fallback signal: extended dwell after 8 minutes → likely purchase
+        if dwell > 480 and session.add_signal("extended_dwell_detected"):
+            await self._persist_signal(
+                session, "extended_dwell_detected", "store",
+                0.5, 0.5, time.time(),
+                metadata={"dwell_seconds": round(dwell, 0)}
+            )
+            if session.confidence_level != session.last_persisted_level:
+                await self._persist_prediction(session)
+                session.last_persisted_level = session.confidence_level
+            # Advance to moving toward checkout if still shopping
+            if session.state == VisitorState.SHOPPING:
+                session.transition_to(VisitorState.MOVING_TO_CHECKOUT)
+            changed = True
+
+        return changed
 
     # ── Lost Track Handling ───────────────────────────────────────────────────
 
