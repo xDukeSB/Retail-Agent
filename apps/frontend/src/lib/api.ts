@@ -157,7 +157,7 @@ export const api = {
     const res = await fetchWithAuth(`${API_BASE}/api/v1/transactions/intelligence/timeline${q ? `?${q}` : ""}`);
     if (!res.ok) return [];
     const json = await res.json();
-    return json.data || json || [];
+    return json.events || json.data || (Array.isArray(json) ? json : []);
   },
 
   // ── Event Lines ──────────────────────────────────────────
