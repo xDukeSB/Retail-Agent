@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-RetailAI Agent One-Click Installer for Windows - Bulletproof Edition.
+RetailAI Agent One-Click Installer for Windows - Bulletproof Edition v42.
 Requires: Run as Administrator. Windows PowerShell 5.1 compatible.
 #>
 
@@ -26,7 +26,7 @@ $FrontendDir = Join-Path $ProjectRoot "apps\frontend"
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "   RetailAI Agent Installer v3.0        " -ForegroundColor Cyan
+Write-Host "   RetailAI Agent Installer v42         " -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -192,9 +192,8 @@ if (!(Test-Path $BackendDir)) {
     if (!(Test-Path $venvPython)) {
         Write-Host "    Creating Python 3.11 virtual environment..." -ForegroundColor Cyan
         try {
-            & $PYTHON311_EXE -m venv .venv --clear 2>&1 | Out-Null
+            & $PYTHON311_EXE -m venv .venv --clear
             Write-Host "    .venv created." -ForegroundColor Green
-            & $venvPython -m ensurepip --upgrade 2>&1 | Out-Null
         } catch {
             Write-Host "    ERROR creating .venv: $_" -ForegroundColor Red
         }
@@ -203,15 +202,39 @@ if (!(Test-Path $BackendDir)) {
     $PythonExe  = Join-Path $BackendDir ".venv\Scripts\python.exe"
     $UvicornExe = Join-Path $BackendDir ".venv\Scripts\uvicorn.exe"
 
-    Write-Host "    Upgrading pip..." -ForegroundColor DarkGray
-    & $PythonExe -m pip install --upgrade pip --quiet 2>&1 | Out-Null
+    # ── Bootstrap pip using get-pip.py (most reliable method on Windows) ──────────
+    $getPipPath = Join-Path $env:TEMP "get-pip.py"
+    Write-Host "    Bootstrapping pip (get-pip.py)..." -ForegroundColor Cyan
+    try {
+        Invoke-WebRequest -Uri "https://bootstrap.pypa.io/get-pip.py" -OutFile $getPipPath -UseBasicParsing -ErrorAction Stop
+        & $PythonExe $getPipPath --quiet
+        Remove-Item $getPipPath -Force -ErrorAction SilentlyContinue
+        Write-Host "    pip bootstrapped successfully." -ForegroundColor Green
+    } catch {
+        Write-Host "    WARNING: get-pip.py download failed, trying ensurepip fallback..." -ForegroundColor Yellow
+        & $PythonExe -m ensurepip --upgrade
+    }
 
-    Write-Host "    Installing Python packages, please wait..." -ForegroundColor Cyan
+    # Verify pip actually works before proceeding
+    $pipCheck = & $PythonExe -m pip --version 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "    CRITICAL: pip is still not working after bootstrap attempt!" -ForegroundColor Red
+        Write-Host "    Output: $pipCheck" -ForegroundColor Red
+        Write-Host "    Trying to recover with ensurepip --default-pip..." -ForegroundColor Yellow
+        & $PythonExe -m ensurepip --default-pip --upgrade
+    } else {
+        Write-Host "    pip OK: $pipCheck" -ForegroundColor Green
+    }
+
+    Write-Host "    Upgrading pip to latest..." -ForegroundColor DarkGray
+    & $PythonExe -m pip install --upgrade pip
+
+    Write-Host "    Installing Python packages, please wait (this takes 3-5 minutes)..." -ForegroundColor Cyan
     $reqFile    = Join-Path $BackendDir "requirements.txt"
     $pipSuccess = $false
     for ($attempt = 1; $attempt -le 3; $attempt++) {
         Write-Host "    pip install attempt $attempt of 3..." -ForegroundColor DarkGray
-        & $PythonExe -m pip install --prefer-binary --no-compile -r $reqFile 2>&1 | Out-Null
+        & $PythonExe -m pip install --prefer-binary --no-compile -r $reqFile
         if ($LASTEXITCODE -eq 0) {
             $pipSuccess = $true
             Write-Host "    All packages installed successfully!" -ForegroundColor Green
@@ -222,14 +245,15 @@ if (!(Test-Path $BackendDir)) {
         }
     }
     if (!$pipSuccess) {
-        Write-Host "    WARNING: Some packages may not have installed." -ForegroundColor Red
+        Write-Host "    WARNING: Some packages may not have installed. Trying critical packages individually..." -ForegroundColor Red
     }
 
-    # ── Always ensure critical backend packages are installed ────────────────
-    Write-Host "    Ensuring critical packages (uvicorn, click, fastapi, sqlalchemy)..." -ForegroundColor Cyan
+    # ── Always ensure critical backend packages are installed ────────────────────────
+    Write-Host "    Verifying critical packages (uvicorn, click, fastapi)..." -ForegroundColor Cyan
     $criticalPkgs = @("click", "uvicorn[standard]", "fastapi", "sqlalchemy", "aiosqlite", "pydantic", "python-jose[cryptography]", "passlib[bcrypt]", "python-multipart")
     foreach ($pkg in $criticalPkgs) {
-        & $PythonExe -m pip install $pkg --prefer-binary --quiet 2>&1 | Out-Null
+        Write-Host "      Installing $pkg..." -ForegroundColor DarkGray
+        & $PythonExe -m pip install $pkg --prefer-binary
     }
     Write-Host "    Critical packages verified." -ForegroundColor Green
 
@@ -462,6 +486,22 @@ function Install-NssmService {
     & $NssmExe set $ServiceName AppStdout (Join-Path $ToolsDir "$ServiceName.log") 2>&1 | Out-Null
     & $NssmExe set $ServiceName AppStderr (Join-Path $ToolsDir "$ServiceName.err") 2>&1 | Out-Null
     & $NssmExe set $ServiceName AppKillProcessTree 1 2>&1 | Out-Null
+
+    # Pass environment variables so the service process has access to them
+    if ($ServiceName -eq "RetailAI_Backend") {
+        $envFile = Join-Path $ProjectRoot ".env"
+        $jwtSecret = "a061b734785101f54ba247fc0b2eecfc5a5efc4ec8c26f341404652e8f67848b"
+        $yoloPath  = Join-Path $ProjectRoot "data\models\yolov8n.pt"
+        & $NssmExe set $ServiceName AppEnvironmentExtra `
+            "JWT_SECRET=$jwtSecret" `
+            "JWT_ALGORITHM=HS256" `
+            "JWT_EXPIRE_MINUTES=60" `
+            "YOLO_MODEL_PATH=$yoloPath" `
+            "YOLO_DEVICE=cpu" `
+            "DATABASE_URL=sqlite+aiosqlite:///./data/db/retailai.db" `
+            "PYTHONUNBUFFERED=1" 2>&1 | Out-Null
+        Write-Host "    Environment variables set for $ServiceName." -ForegroundColor DarkGray
+    }
 
     Start-Sleep -Seconds 1
     try {
