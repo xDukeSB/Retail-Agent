@@ -11,6 +11,7 @@ Architecture:
 
 import time
 import multiprocessing as mp
+import os
 from typing import Dict, Any, List, Optional
 import traceback
 import logging
@@ -76,9 +77,17 @@ class InferenceWorker(mp.Process):
 
         # ── Model Initialization ────────────────────────────────────────────────
         try:
-            device = "cuda" if (torch and torch.cuda.is_available()) else "cpu"
-            logger.info(f"[InferenceWorker] Loading YOLOv8n on device: {device}")
-            self.model = YOLO("yolov8n.pt")
+            # Read model path and device from environment (set by bootstrapper / .env)
+            model_path = os.environ.get("YOLO_MODEL_PATH", "yolov8n.pt")
+            env_device = os.environ.get("YOLO_DEVICE", "auto")
+
+            if env_device == "auto" or env_device == "":
+                device = "cuda" if (torch and torch.cuda.is_available()) else "cpu"
+            else:
+                device = env_device
+
+            logger.info(f"[InferenceWorker] Loading YOLO model: {model_path} on device: {device}")
+            self.model = YOLO(model_path)
             self.model.to(device)
             logger.info(f"[InferenceWorker] Model ready on {device}. Entering inference loop.")
         except Exception as e:

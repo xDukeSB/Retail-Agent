@@ -154,7 +154,7 @@ export const api = {
 
   async getTimelineEvents(params?: { limit?: number; offset?: number; camera_id?: string; date_from?: string }) {
     const q = new URLSearchParams(params as Record<string, string>).toString();
-    const res = await fetchWithAuth(`${API_BASE}/api/v1/timeline${q ? `?${q}` : ""}`);
+    const res = await fetchWithAuth(`${API_BASE}/api/v1/transactions/intelligence/timeline${q ? `?${q}` : ""}`);
     if (!res.ok) return [];
     const json = await res.json();
     return json.data || json || [];

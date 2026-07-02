@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     BACKEND_SECRET_KEY: str = "dev-secret-change-in-production"
     BACKEND_DEBUG: bool = False
 
+    # ── JWT Auth ─────────────────────────────────────
+    JWT_SECRET: str = "CHANGE-THIS-IN-PRODUCTION-USE-64-CHAR-RANDOM-STRING"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRE_MINUTES: int = 60
+
     # ── Database ─────────────────────────────────────
     DATABASE_URL: str = "sqlite+aiosqlite:///./data/db/retailai.db"
     DB_DIR: str = "./data/db"

@@ -139,16 +139,34 @@ class AggregatorService:
 
     async def _compute_daily(self, db, camera_id, target_date: date):
         """Computes or updates a single DailyReport row."""
-        q = select(
-            func.count(PersonTrack.id).label("total"),
-            func.avg(PersonTrack.dwell_seconds).label("avg_dwell"),
-        ).where(PersonTrack.date == target_date)
-
+        # Count entries (tracks starting today)
+        entries_q = select(func.count(PersonTrack.id)).where(
+            PersonTrack.date == target_date
+        )
         if camera_id:
-            q = q.where(PersonTrack.camera_id == camera_id)
+            entries_q = entries_q.where(PersonTrack.camera_id == camera_id)
+        entries_result = await db.execute(entries_q)
+        total_entries = entries_result.scalar() or 0
 
-        result = await db.execute(q)
-        row = result.one()
+        # Count exits (tracks that completed today)
+        exits_q = select(func.count(PersonTrack.id)).where(
+            PersonTrack.date == target_date,
+            PersonTrack.is_complete == True,
+        )
+        if camera_id:
+            exits_q = exits_q.where(PersonTrack.camera_id == camera_id)
+        exits_result = await db.execute(exits_q)
+        total_exits = exits_result.scalar() or 0
+
+        # Average dwell from completed tracks
+        avg_dwell_q = select(func.avg(PersonTrack.dwell_seconds)).where(
+            PersonTrack.date == target_date,
+            PersonTrack.is_complete == True,
+        )
+        if camera_id:
+            avg_dwell_q = avg_dwell_q.where(PersonTrack.camera_id == camera_id)
+        avg_dwell_result = await db.execute(avg_dwell_q)
+        avg_dwell = float(avg_dwell_result.scalar() or 0)
 
         # Find peak hour
         peak_q = (
@@ -182,9 +200,9 @@ class AggregatorService:
         existing = existing_result.scalar_one_or_none()
 
         if existing:
-            existing.total_entries = total
-            existing.total_exits = total  # simplified
-            existing.unique_visitors = total
+            existing.total_entries = total_entries
+            existing.total_exits = total_exits
+            existing.unique_visitors = total_entries
             existing.avg_dwell_seconds = avg_dwell
             existing.peak_hour = peak_hour
             existing.peak_count = peak_count
@@ -194,9 +212,9 @@ class AggregatorService:
                 id=str(uuid.uuid4()),
                 camera_id=camera_id,
                 date=target_date,
-                total_entries=total,
-                total_exits=total,
-                unique_visitors=total,
+                total_entries=total_entries,
+                total_exits=total_exits,
+                unique_visitors=total_entries,
                 avg_dwell_seconds=avg_dwell,
                 peak_hour=peak_hour,
                 peak_count=peak_count,

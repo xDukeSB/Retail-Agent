@@ -301,3 +301,42 @@ async def get_history(
     
     # Return paginated slice
     return events[:limit]
+
+
+@router.get("/status")
+async def get_live_status(
+    camera_id: Optional[str] = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Real-time store occupancy status.
+    Called by the Dashboard every 30 seconds for the live count KPI.
+    Returns: current_in_store, today_entries, today_exits.
+    """
+    from sqlalchemy import func
+    from datetime import date
+    from models.analytics import DailyReport
+
+    today = date.today()
+
+    q = (
+        select(
+            func.sum(DailyReport.total_entries).label("entries"),
+            func.sum(DailyReport.total_exits).label("exits"),
+        )
+        .where(DailyReport.date == today)
+    )
+    if camera_id:
+        q = q.where(DailyReport.camera_id == camera_id)
+
+    result = await db.execute(q)
+    row = result.one()
+    entries = int(row.entries or 0)
+    exits = int(row.exits or 0)
+
+    return {
+        "current_in_store": max(0, entries - exits),
+        "today_entries": entries,
+        "today_exits": exits,
+        "timestamp": datetime.utcnow().isoformat(),
+    }
