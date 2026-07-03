@@ -186,9 +186,6 @@ class AggregatorService:
         peak_hour = int(peak_row[0]) if peak_row else None
         peak_count = int(peak_row[1]) if peak_row else 0
 
-        total = row.total or 0
-        avg_dwell = float(row.avg_dwell or 0)
-
         # Upsert daily report
         existing_q = select(DailyReport).where(DailyReport.date == target_date)
         if camera_id:
